@@ -126,6 +126,9 @@ def lisp_eval(simb, items):
     elif simb not in dic:
         dic[simb] = items[0]
         return items[0]
+    elif simb in dic:
+        print("Error! You had already let " + simb + " equals " +str(dic[simb]))
+        return dic[simb]
     else:
         return [simb] + items
 
