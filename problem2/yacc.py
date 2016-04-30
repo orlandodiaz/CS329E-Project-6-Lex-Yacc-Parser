@@ -8,6 +8,7 @@ DEBUG = True
 # Namespace & built-in functions
 
 name = {}
+let_dict = {} # Dictionary that stores variable name and value ( Example: {'a' : 3} )
 
 global ast
 ast = []
@@ -60,20 +61,73 @@ def cond(l):
 name['cond'] = cond
 
 def add(l):
-    return sum(l)
+    for t in range(len(l)):
+        if l[t] in let_dict: # Check if the term is a variable in the dictionary
+            l[t] = let_dict[l[t]] # Change the term from the variable name to its value
+    return sum( [int(t) for t in l ] )
 
 name['+'] = add
 
 def minus(l):
-    '''Unary minus'''
-    return -l[0]
+    for t in range(len(l)):
+        if l[t] in let_dict: # Check if the term is a variable in the dictionary
+            l[t] = let_dict[l[t]] # Change the term from the variable name to its value
+    result = int(l[0])
+    for t in l[1:]:
+        result -= int(t) # Can handle more than 2 terms to subtract
+    return result
 
 name['-'] = minus
+
+def multiply(l):
+    for t in range(len(l)):
+        if l[t] in let_dict: # Check if the term is a variable in the dictionary
+            l[t] = let_dict[l[t]] # Change the term from the variable name to its value
+    result = 1
+    for t in l:
+        result *= int(t) # Can handle more than 2 terms to multiply
+    return result
+
+name['*'] = multiply
+
+def divide(l):
+    # NOTE: had to change SIMB regular expression in lex.py to allow for "/"
+    for t in range(len(l)):
+        if l[t] in let_dict: # Check if the term is a variable in the dictionary
+            l[t] = let_dict[l[t]] # Change the term from the variable name to its value
+    result = float(l[0])
+    try:
+        for t in l[1:]:
+            result /= int(t) # Can handle more than 2 terms to divide
+        return result
+    except ZeroDivisionError:
+        print("Error: cannot divide by 0!")
+        return None
+
+name['/'] = divide
 
 def _print(l):
     print lisp_str(l[0])
 
 name['print'] = _print
+
+def let(l):
+    del let_dict[l[0][0]] # Delete the dictionary item
+    if len(l) == 1:
+        return l[0][1] # Handles case like (let (a 3)) - only returns the value
+    return l[-1] # Return the last item of "l", which is the result returned from arithmetic function
+
+name['let'] = let
+
+def _if(l):
+    # Format: (if #t 1 2) - if true, return 1; otherwise, return 2
+    # l[0] = #t, l[1] = 1, l[2] = 2
+    if l[0] == True:
+        return l[1]
+    else:
+        return l[2]
+
+name['if'] = _if
 
 #  Evaluation functions
 
@@ -81,11 +135,13 @@ def lisp_eval(simb, items):
     if simb in name:
         return call(name[simb], eval_lists(items))
     else:
-       return [simb] + items
+        if simb not in let_dict: # Variable is not already in the dictionary
+            let_dict[simb] = items[0] # Add the variable and value to the dictionary
+        return [simb] + items
 
 def call(f, l):
     try:
-        return f(eval_lists(l))  
+        return f(eval_lists(l))
     except TypeError:
         return f
 
@@ -140,6 +196,8 @@ def p_exp_call(p):
 
 def p_quoted_list(p):
     'quoted_list : QUOTE list'
+    #p[0] = p[2]
+    #p[0] = [p[1]] + p[2]
     p[0] = ["quote"] + [p[2]]
 
 def p_list(p):
@@ -169,7 +227,7 @@ def p_item_list(p):
 def p_item_list(p):
     'item : quoted_list'
     p[0] = p[1]
-        
+
 def p_item_call(p):
     'item : call'
     p[0] = p[1]
@@ -181,13 +239,12 @@ def p_item_empty(p):
 def p_call(p):
     'call : LPAREN SIMB items RPAREN'
     global ast
-    if DEBUG: print "Calling", p[2], "with", p[3] 
-    # if isinstance(p[3], list) and isinstance(p[3][0], list) and p[3][0][0] == "'":
-    # p[3] = [["quote"] + [p[3][0][1:]]]
+    if DEBUG: print "Calling", p[2], "with", p[3]
+    #if isinstance(p[3], list) and isinstance(p[3][0], list) and p[3][0][0] == "'":
+    #p[3] = [["quote"] + [p[3][0][1:]]] # Replace single quote with the word "quote"
     ast = [p[2]] + [i for i in p[3]]
     print "ast is: ", ast
     p[0] = ast
-    # p[0] = lisp_eval(p[2], p[3])   
 
 def p_atom_simbol(p):
     'atom : SIMB'
@@ -205,7 +262,7 @@ def p_atom_word(p):
     'atom : TEXT'
     p[0] = p[1]
 
-def p_atom_empty(p): 
+def p_atom_empty(p):
     'atom :'
     pass
 
