@@ -142,7 +142,8 @@ def eval(x, env=global_env):
         proc = eval(x[0], env)
         s = x[1:]
         for i in range(len(s)):
-            if s[i] in dic:
+            if not isinstance(s[i], List):
+              if s[i] in dic:
                 s[i] = dic[s[i]]
         args = [eval(exp, env)  for exp in s]
         return proc(*args)
